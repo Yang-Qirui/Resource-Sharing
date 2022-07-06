@@ -1,4 +1,4 @@
-from cProfile import label
+import re
 from gen_decision import *
 import matplotlib.pyplot as plt
 
@@ -10,10 +10,11 @@ def main():
         '/'.join([base_path, x])), all_file))
     data = []
     for dir in dirs:
-        m = int(dir[2])
-        n = int(dir[6])
-        c = int(dir[10])
-        case = int(dir[-1])
+        params = re.findall(r"\d+", dir)
+        m = params[0]
+        n = params[1]
+        c = params[2]
+        case = params[3]
         print(f"m = {m}, n = {n}, c = {c}")
         print(f"x = {n * (n - c) * m}")
         dir_path = '/'.join([base_path, dir])
