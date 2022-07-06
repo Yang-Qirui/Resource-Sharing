@@ -11,10 +11,10 @@ def main():
     data = []
     for dir in dirs:
         params = re.findall(r"\d+", dir)
-        m = params[0]
-        n = params[1]
-        c = params[2]
-        case = params[3]
+        m = int(params[0])
+        n = int(params[1])
+        c = int(params[2])
+        case = int(params[3])
         print(f"m = {m}, n = {n}, c = {c}")
         print(f"x = {n * (n - c) * m}")
         dir_path = '/'.join([base_path, dir])
