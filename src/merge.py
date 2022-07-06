@@ -49,7 +49,7 @@ class StateNode:
 
     def merge(self, col1, col2):
         '''merge col2 to col1'''
-        # print(f"\nmerge {col1.prefix} & {col2.prefix}")
+        print(f"\nmerge {col1.prefix} & {col2.prefix}")
 
         def gen_extend_vec(v1, v2):
             extend_vec = ''

@@ -11,7 +11,7 @@ init(autoreset=True)
 def gen_decision(file):
     root = StateNode()
     with open(file, 'r') as f:
-        # print(Fore.CYAN + f"Processing {file}")
+        print(Fore.CYAN + f"Processing {file}")
         cnt = 0
         line = f.readline().replace(" ", '')
         constant = len(line.split('1')) - 1
@@ -33,7 +33,7 @@ def gen_decision(file):
             column = ''
             for c in column_string:
                 column += c
-            # print(f"Col{i}: {column}")
+            print(f"Col{i}: {column}")
             if '1' in column and '0' in column:
                 root.columns.append(
                     Column(prefix=column, formation={column: i}))
