@@ -1,2 +1,1 @@
-from decision_tree import *
-from trie import *
+from gen_decision import *

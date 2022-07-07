@@ -20,7 +20,6 @@ class StateNode:
     def __init__(self):
         self.columns = []
         self.similarities = []
-        self.next = []
         self.cost = 0
         self.cnt = 0
         self.chosen_columns = []
@@ -144,7 +143,7 @@ class StateTree:
                         # print(Fore.RED + f'min_cost: {new_node.cost}')
                         self.min_dict['min_cost'] = new_node.cost
                         self.min_dict['min_state'] = new_node
-                node.next.append(new_node)
+                # node.next.append(new_node)
 
     def generate_tree(self):
         self._generate_tree(self.root)
