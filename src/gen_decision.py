@@ -41,14 +41,16 @@ def gen_decision(file):
                 all_1_vector.append({'1111': i})
                 constant -= 1
         f.close()
-    state_tree = StateTree(root)
-    state_tree.generate_tree()
-    if state_tree.min_dict['min_state']:
+    if len(root.columns) > 0:
+        state_tree = StateTree(root)
+        state_tree.generate_tree()
         chosen_columns = state_tree.min_dict['min_state'].chosen_columns
+        chosen_columns.extend(all_1_vector)
+        min_cost = state_tree.min_dict['min_cost'] + len(all_1_vector)
     else:
-        chosen_columns = []
-    chosen_columns.extend(all_1_vector)
-    return state_tree.min_dict['min_cost'], chosen_columns
+        chosen_columns = all_1_vector
+        min_cost = 0
+    return min_cost, chosen_columns
 
 
 if __name__ == "__main__":

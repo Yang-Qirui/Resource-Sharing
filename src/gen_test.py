@@ -6,7 +6,7 @@ test_cases = 20
 random_times = 200
 setting = []
 m_max = 7
-n_max = 12
+n_max = 7
 max_cases = (m_max - 1) * reduce(lambda x, y: x + y, range(1, n_max - 1))
 
 
