@@ -5,3 +5,4 @@
 data/figure
 data/matrix
 /.vscode
+/src/__pycache__

@@ -1,4 +1,5 @@
 from copy import copy, deepcopy
+import math
 from colorama import Fore
 import numpy as np
 
@@ -117,12 +118,12 @@ class StateTree:
             # if new_node.cost + len(new_node.columns) / 2 < self.min_dict['min_cost']:
             # print(
             # Fore.GREEN + f'columns_count: {[c.prefix for c in new_node.columns]}, cost: {new_node.cost}', Fore.RED + f"min_cost: {self.min_dict['min_cost']}")
-            if new_node.cost + len(new_node.columns) / 2 < self.min_dict['min_cost']:
+            if new_node.cost + math.ceil(len(new_node.columns) / 2) < self.min_dict['min_cost']:
                 if len(new_node.columns) > 0:
                     self._generate_tree(new_node)
                 else:
                     if new_node.cost < self.min_dict['min_cost']:
-                        # print(Fore.RED + f'min_cost: {new_node.cost}')
+                        print(Fore.RED + f'min_cost: {new_node.cost}')
                         self.min_dict['min_cost'] = new_node.cost
                         self.min_dict['min_state'] = new_node
                 # node.next.append(new_node)

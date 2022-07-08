@@ -2,11 +2,11 @@ from functools import reduce
 import os
 import random
 
-test_cases = 20
+test_cases = 40
 random_times = 200
 setting = []
 m_max = 7
-n_max = 7
+n_max = 10
 max_cases = (m_max - 1) * reduce(lambda x, y: x + y, range(1, n_max - 1))
 
 
