@@ -4,5 +4,6 @@
 *.log
 data/figure
 data/matrix
+data/reports
 /.vscode
-/src/__pycache__
+**/__pycache__

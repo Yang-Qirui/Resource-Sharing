@@ -1,15 +1,18 @@
-import os
-import sys
-import time
-from colorama import Fore, init
+from enumerate.enum_merge import *
+from baseline.random_merge import *
+from baseline.greedy_merge import *
+from colorama import init
 import numpy
-import argparse
-from merge import *
 init(autoreset=True)
 
 
-def gen_decision(file):
-    root = StateNode()
+def gen_decision(file, method):
+    if method == 'ENUM':
+        root = EnumStateNode()
+    elif method == 'RANDOM':
+        root = RandomStateNode()
+    elif method == 'GREEDY':
+        root = GreedyStateNode()
     with open(file, 'r') as f:
         # print(Fore.CYAN + f"Processing {file}")
         cnt = 0
@@ -35,14 +38,27 @@ def gen_decision(file):
                 column += c
             # print(f"Col{i}: {column}")
             if '1' in column and '0' in column:
-                root.columns.append(
-                    Column(prefix=column, formation={column: i}))
+                if method == 'ENUM':
+                    root.columns.append(
+                        EnumColumn(prefix=column, formation={column: i}))
+                elif method == 'RANDOM':
+                    root.columns.append(
+                        RandomColumn(prefix=column, formation={column: i}))
+                elif method == 'GREEDY':
+                    root.columns.append(
+                        GreedyColumn(prefix=column, formation={column: i})
+                    )
             elif '0' not in column:
-                all_1_vector.append({'1111': i})
+                all_1_vector.append({''.rjust(len(column), '1'): i})
                 constant -= 1
         f.close()
     if len(root.columns) > 0:
-        state_tree = StateTree(root)
+        if method == 'ENUM':
+            state_tree = EnumStateTree(root)
+        elif method == 'RANDOM':
+            state_tree = RandomStateTree(root)
+        elif method == 'GREEDY':
+            state_tree = GreedyStateTree(root)
         state_tree.generate_tree()
         chosen_columns = state_tree.min_dict['min_state'].chosen_columns
         chosen_columns.extend(all_1_vector)
@@ -51,39 +67,3 @@ def gen_decision(file):
         chosen_columns = all_1_vector
         min_cost = 0
     return min_cost, chosen_columns
-
-
-if __name__ == "__main__":
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument(
-        '-debug', help="Print debug info", action='store_true')
-    arg_parser.add_argument(
-        '-d', help="Directory path that need to resource sharing", default="", required=True, type=str)
-    arg_parser.add_argument(
-        '-log', help="Generate log file for each file in directory", action='store_true')
-    args = arg_parser.parse_args()
-    file_list = []
-    if args.d:
-        for root, dirs, files in os.walk(args.d):
-            print(Fore.YELLOW + f'Loading files: {files}')
-            file_list = [args.d + '/' + file for file in files]
-    t_start = time.time()
-    for file in file_list:
-        start = time.time()
-        if not args.debug:
-            sys.stdout = open(os.devnull, 'w')
-        if args.log:
-            with open(file + ".log", 'w') as log_file:
-                sys.stdout = log_file
-                min_cost, min_steps = gen_decision(file)
-                log_file.close()
-        else:
-            min_cost, min_steps = gen_decision(file)
-        sys.stdout = sys.__stdout__
-        # print(Fore.GREEN + f'\nTOTAL_PLUS_COUNT: {len(min_steps)}')
-        print(Fore.GREEN + f'TOTAL_MIN_COST: {min_cost}')
-        print(Fore.GREEN + f'TOTAL_MIN_STEPS: {min_steps}')
-        end = time.time()
-        print(Fore.BLUE + f"SPEND: {end - start} second.\n")
-    t_end = time.time()
-    print(Fore.MAGENTA + f"TOTAL: {t_end - t_start} second.")

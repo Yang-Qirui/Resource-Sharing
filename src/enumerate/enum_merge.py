@@ -11,13 +11,13 @@ class Similarity:
         self.sim = sim
 
 
-class Column:
+class EnumColumn:
     def __init__(self, **kwargs):
         for key, val in kwargs.items():
             setattr(self, key, val)
 
 
-class StateNode:
+class EnumStateNode:
     def __init__(self):
         self.columns = []
         self.similarities = []
@@ -73,11 +73,11 @@ class StateNode:
                             col2.formation[new_key] = num
                         break
             self.columns.append(
-                Column(prefix=and_vec, formation={and_vec: num}))
+                EnumColumn(prefix=and_vec, formation={and_vec: num}))
         col1.formation.update(col2.formation)
         if '0' in or_vec:
             self.columns.append(
-                Column(prefix=or_vec, formation=col1.formation))
+                EnumColumn(prefix=or_vec, formation=col1.formation))
         else:
             self.chosen_columns.append(col1.formation)
 
@@ -85,7 +85,7 @@ class StateNode:
         # print(Fore.GREEN + f"After columns: {columns}\n")
 
 
-class StateTree:
+class EnumStateTree:
     def __init__(self, root):
         self.root = root
         self.min_dict = {'min_cost': np.inf, 'min_state': None}
@@ -93,19 +93,19 @@ class StateTree:
     def _generate_tree(self, node):
         node.cal_cos_similarity()
 
-        if node.avg_sim == 0:
-            # print(Fore.BLUE + f'sims are all zero')
-            if node.cost + len(node.columns) - 1 < self.min_dict['min_cost']:
-                formation = {}
-                for c in node.columns:
-                    formation.update(c.formation)
-                node.chosen_columns.append(formation)
-                self.min_dict['min_cost'] = node.cost + len(node.columns) - 1
-                self.min_dict['min_state'] = node
-                return
+        # if node.avg_sim == 0:
+        #     # print(Fore.BLUE + f'sims are all zero')
+        #     if node.cost + len(node.columns) - 1 < self.min_dict['min_cost']:
+        #         formation = {}
+        #         for c in node.columns:
+        #             formation.update(c.formation)
+        #         node.chosen_columns.append(formation)
+        #         self.min_dict['min_cost'] = node.cost + len(node.columns) - 1
+        #         self.min_dict['min_state'] = node
+        #         return
 
         while len(node.similarities) > 0:
-            new_node = StateNode()
+            new_node = EnumStateNode()
             new_node.chosen_columns = copy(node.chosen_columns)
             new_node.columns = deepcopy(node.columns)
             new_node.cost = node.cost
@@ -123,7 +123,7 @@ class StateTree:
                     self._generate_tree(new_node)
                 else:
                     if new_node.cost < self.min_dict['min_cost']:
-                        print(Fore.RED + f'min_cost: {new_node.cost}')
+                        # print(Fore.RED + f'min_cost: {new_node.cost}')
                         self.min_dict['min_cost'] = new_node.cost
                         self.min_dict['min_state'] = new_node
                 # node.next.append(new_node)

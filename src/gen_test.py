@@ -2,11 +2,11 @@ from functools import reduce
 import os
 import random
 
-test_cases = 40
+test_cases = 30
 random_times = 200
 setting = []
 m_max = 7
-n_max = 10
+n_max = 7
 max_cases = (m_max - 1) * reduce(lambda x, y: x + y, range(1, n_max - 1))
 
 
@@ -24,7 +24,7 @@ def gen_test():
                         f"There can't be {test_cases} combination for m_max = {m_max}, n_max = {n_max}, only generate {max_cases * random_times} cases.")
                 return
         setting.append((m, n, c))
-        path = f"../data/matrix/m_{m}-n_{n}-c_{c}-case{i}"
+        path = f"../data/matrix/case{i}-m_{m}-n_{n}-c_{c}"
         for id in range(random_times):
             if not os.path.exists(path):
                 os.makedirs(path)
