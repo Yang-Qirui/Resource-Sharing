@@ -1,12 +1,8 @@
-import random
-from colorama import Fore
 import numpy as np
-
-
-class RandomColumn:
-    def __init__(self, **kwargs):
-        for key, val in kwargs.items():
-            setattr(self, key, val)
+import random
+import sys
+sys.path.append("..")
+from column import Column  # NOQA: E402
 
 
 class RandomStateNode:
@@ -43,11 +39,11 @@ class RandomStateNode:
                             col2.formation[new_key] = num
                         break
             self.columns.append(
-                RandomColumn(prefix=and_vec, formation={and_vec: num}))
+                Column(prefix=and_vec, formation={and_vec: num}))
         col1.formation.update(col2.formation)
         if '0' in or_vec:
             self.columns.append(
-                RandomColumn(prefix=or_vec, formation=col1.formation))
+                Column(prefix=or_vec, formation=col1.formation))
         else:
             self.chosen_columns.append(col1.formation)
 
