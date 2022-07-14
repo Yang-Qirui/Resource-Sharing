@@ -37,6 +37,7 @@ class EnumStateNode:
                 v2 = [int(x) for x in v2]
                 sim = np.dot(v1, v2)/(np.linalg.norm(v1) * np.linalg.norm(v2))
                 self.similarities.append(Similarity(i, j, sim))
+                self.similarities.append(Similarity(j, i, sim))
                 self.avg_sim += sim
         self.similarities.sort(key=lambda x: x.sim)
         self.avg_sim /= len(self.similarities)
@@ -59,17 +60,33 @@ class EnumStateNode:
         if '1' in and_vec:
             if and_vec in col2.formation.keys():
                 num = col2.formation.pop(and_vec)
+                self.columns.append(
+                    Column(prefix=and_vec, formation={and_vec: num}))
             else:
+                # print(col2.formation, and_vec)
+                pop_list = []
+                push_list = []
                 for k in col2.formation.keys():
-                    if '1' in and_vec:
-                        new_key = bin(int(k, 2) - int(
-                            and_vec, 2))[2:].zfill(len(k))
-                        num = col2.formation.pop(k)
-                        if '1' in new_key:
-                            col2.formation[new_key] = num
+                    contribute = int(k, 2) & int(
+                        and_vec, 2)
+                    # print(k, and_vec)
+                    if contribute != 0:
+                        new_key = bin(int(k, 2) - contribute)[2:].zfill(len(k))
+                        pop_list.append(k)
+                        # num = col2.formation.pop(k)
+                        push_list.append((new_key, col2.formation[k]))
+                        # col2.formation[new_key] = num
+                        new_prefix = bin(contribute)[2:].zfill(len(k))
+                        self.columns.append(
+                            Column(prefix=new_prefix, formation={new_prefix: col2.formation[k]}))
+                        and_vec = bin(int(and_vec, 2) -
+                                      contribute)[2:].zfill(len(k))
+                    if '1' not in and_vec:
                         break
-            self.columns.append(
-                Column(prefix=and_vec, formation={and_vec: num}))
+                for item in pop_list:
+                    col2.formation.pop(item)
+                for item in push_list:
+                    col2.formation[item[0]] = item[1]
         col1.formation.update(col2.formation)
         if '0' in or_vec:
             self.columns.append(
@@ -106,14 +123,14 @@ class EnumStateTree:
             new_node.columns = deepcopy(node.columns)
             new_node.cost = node.cost
 
-            min_sim = node.similarities.pop(0)
+            min_sim = node.similarities.pop()
             col1 = new_node.columns[min_sim.v1]
             col2 = new_node.columns[min_sim.v2]
             new_node.merge(col1, col2)
             new_node.cost += 1
             # if new_node.cost + len(new_node.columns) / 2 < self.min_dict['min_cost']:
             # print(
-            # Fore.GREEN + f'columns_count: {[c.prefix for c in new_node.columns]}, cost: {new_node.cost}', Fore.RED + f"min_cost: {self.min_dict['min_cost']}")
+            # f'columns_count: {[(c.prefix,c.formation) for c in new_node.columns]}, cost: {new_node.cost}', f"min_cost: {self.min_dict['min_cost']}")
             if new_node.cost + math.ceil(len(new_node.columns) / 2) < self.min_dict['min_cost']:
                 if len(new_node.columns) > 0:
                     self._generate_tree(new_node)

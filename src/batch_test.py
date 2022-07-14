@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 def main(args):
     print(Fore.GREEN + f"Present algorithm used: {args.m}")
-    base_path = "../data/_matrix"
+    base_path = "../data/matrix"
     all_file = os.listdir(base_path)
     dirs = list(filter(lambda x: os.path.isdir(
         '/'.join([base_path, x])), all_file))

@@ -50,7 +50,7 @@ def gen_decision(file, method, time_limit):
         f.close()
     if len(root.columns) > 0:
         if method == 'ENUM':
-            state_tree = MCTSStateTree(root)
+            state_tree = EnumStateTree(root)
         elif method == 'RANDOM':
             state_tree = RandomStateTree(root)
         elif method == 'GREEDY':

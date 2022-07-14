@@ -2,7 +2,7 @@ from functools import reduce
 import os
 import random
 
-test_cases = 30
+test_cases = 10
 random_times = 200
 setting = []
 m_max = 7

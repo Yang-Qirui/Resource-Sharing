@@ -70,11 +70,11 @@ def main():
                 print(mcts_file_path, enum_file_path)
                 exit(2)
             # if m_cost == e_cost:
-            #     e_cols = ef.readline()
-            #     m_cols = mf.readline()
-            #     if e_cols != m_cols:
-            #         print("\n", e_cols)
-            #         print(m_cols, "\n")
+            e_cols = ef.readline()
+            m_cols = mf.readline()
+            # if e_cols != m_cols:
+            #     print("\n", e_cols)
+            #     print(m_cols, "\n")
 
         y0.append(random_tot - enum_tot)
         y1.append(greedy_tot - enum_tot)
