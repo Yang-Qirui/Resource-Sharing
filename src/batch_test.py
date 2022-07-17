@@ -29,10 +29,18 @@ def main(args):
         for i in range(len(all_test_files)):
             test_path = '/'.join([dir_path, all_test_files[i]])
             start = time.time()
-            cost, decision = gen_decision(test_path, args.m, args.t)
+            cost, decision = gen_decision(test_path, args)
             # print(decision)
             log_name = ''.join([all_test_files[i].split('.')[0], '.log'])
             log_dir = f'../data/reports/{args.m.lower()}/case{case}-m_{m}-n_{n}-c_{c}'
+            if args.r:
+                log_dir += '/random'
+            else:
+                log_dir += '/enum'
+            if args.v:
+                log_dir += '/count_visit'
+            else:
+                log_dir += '/cost_only'
             if not os.path.exists(log_dir):
                 os.makedirs(log_dir)
             f = open(
@@ -44,7 +52,12 @@ def main(args):
             scatter_y.append(end-start)
         plt.scatter(scatter_x, scatter_y)
         figure_dir = f"../data/figure/{args.m.lower()}"
-        figure_name = f"case{case}-m_{m}-n_{n}-c_{c}-{args.m.lower()}.png"
+        figure_name = f"case{case}-m_{m}-n_{n}-c_{c}-{args.m.lower()}"
+        if args.r:
+            figure_name += "-random"
+        if args.v:
+            figure_name += "-count_visit"
+        figure_name += '.png'
         if not os.path.exists(figure_dir):
             os.makedirs(figure_dir)
         plt.savefig(
@@ -76,5 +89,10 @@ if __name__ == "__main__":
     arg_parser.add_argument(
         '-m', help='Resource sharing method. [ENUM, RANDOM, GREEDY, MCTS]', default='RANDOM')
     arg_parser.add_argument('-t', help='Time limit for MCTS', default=1)
+    arg_parser.add_argument(
+        '-r', help='Random exploration for MCTS', action='store_true')
+    arg_parser.add_argument(
+        '-v', help='Add visit time into MCTS make_decision consideration', action='store_true')
+
     args = arg_parser.parse_args()
     main(args)

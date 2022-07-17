@@ -1,5 +1,5 @@
 import numpy as np
-from copy import copy, deepcopy
+from copy import deepcopy
 from math import sqrt, log
 import random
 import time
@@ -74,12 +74,14 @@ class MCTSStateNode:
 
 
 class MCTSStateTree:
-    def __init__(self, root, m, c, time_limit, weight=0.3):
+    def __init__(self, root, m, c, time_limit, random, visit, weight=0.3):
         self.root = root
         self.m = m
         self.c = c
         self.visit = 0
         self.time_limit = time_limit
+        self.is_random = random
+        self.is_visit = visit
         self.weight = weight
         self.min_dict = {'min_cost': np.inf, 'min_state': None}
 
@@ -89,7 +91,12 @@ class MCTSStateTree:
             # print([x.prefix for x in node.columns])
             node.visit += 1
             self.visit += 1
-            if len(node.expanded) == len(node.columns) * (len(node.columns) - 1) / 2:
+            prob = len(node.expanded) == len(node.columns) * \
+                (len(node.columns) - 1) / 2
+            if self.is_random:
+                possibility = random.random()
+                prob = prob or (possibility > 0.5)
+            if prob:
                 def cal_func(x):
                     if x.cost == 0:
                         return np.inf
@@ -100,6 +107,7 @@ class MCTSStateTree:
                 node.children.sort(key=lambda x: cal_func(x))
                 node = node.children[-1]
             else:
+
                 break
         return node
 
@@ -128,20 +136,6 @@ class MCTSStateTree:
         node.expanded.append((indexes[0], indexes[1]))
         return new_node
 
-        for i in range(len(node.columns)):
-            for j in range(i + 1, len(node.columns)):
-                or_value = int(node.columns[i].prefix, 2) | int(
-                    node.columns[j].prefix, 2)
-                if or_value == int(node.columns[i].prefix, 2) or or_value == int(node.columns[j].prefix, 2):
-                    continue
-                new_node = MCTSStateNode()
-                new_node.parent = node
-                new_node.columns = deepcopy(node.columns)
-                new_node.chosen_columns = copy(node.chosen_columns)
-                new_node.merge(
-                    new_node.columns[i], new_node.columns[j])
-                node.children.append(new_node)
-
     def simulation(self, node):
         new_node = MCTSStateNode()
         new_node.columns = deepcopy(node.columns)
@@ -168,19 +162,38 @@ class MCTSStateTree:
             value += 1
             node = node.parent
 
-    # def make_decision(self):
-    #     node = self.root
-    #     while node.children:
-    #         node.children.sort(key=lambda x: x.cost)
-    #         node = node.children[0]
-    #     cost = 0
-    #     for item in node.chosen_columns:
-    #         cost += len(item.keys()) - 1
-    #     if node.columns:
-    #         return False
-    #     self.min_dict['min_cost'] = cost
-    #     self.min_dict['min_state'] = node
-    #     return True
+    def make_decision(self):
+        node = self.root
+        while node.children:
+            if self.is_visit:
+                node.children.sort(key=lambda x: x.cost + node.visit / x.visit)
+            else:
+                node.children.sort(key=lambda x: x.cost)
+            node = node.children[0]
+        if node.columns:
+            print('Need merge')
+            while len(node.columns) > 0:
+                max_1 = 0
+                for c in node.columns:
+                    one_count = c.prefix.count('1')
+                    # print(c.prefix, one_count)
+                    if one_count > max_1:
+                        max_1 = one_count
+                        max_col = c
+                for c in node.columns:
+                    if int(c.prefix, 2) | int(
+                            max_col.prefix, 2) != int(
+                            max_col.prefix, 2):
+                        node.merge(max_col, c)
+                        break
+
+        cost = 0
+        for item in node.chosen_columns:
+            cost += len(item.keys()) - 1
+
+        self.min_dict['min_cost'] = cost
+        self.min_dict['min_state'] = node
+        return True
 
     def debug(self):
         l = [self.root]
@@ -207,11 +220,6 @@ class MCTSStateTree:
                 self.simulation(expand_node)
                 self.backpropagation(expand_node, expand_node.cost)
             end = time.time()
-        # node = self.min_dict['min_state']
-        # while node:
-        #     print([x.prefix for x in node.columns])
-        #     node = node.parent
-        # debug = self.make_decision()
-        # if not debug:
-        #     self.debug()
-        #     exit(1)
+        node = self.min_dict['min_state']
+        if not node:
+            self.make_decision()

@@ -7,14 +7,14 @@ import numpy
 init(autoreset=True)
 
 
-def gen_decision(file, method, time_limit):
-    if method == 'ENUM':
+def gen_decision(file, args):
+    if args.m == 'ENUM':
         root = EnumStateNode()
-    elif method == 'RANDOM':
+    elif args.m == 'RANDOM':
         root = RandomStateNode()
-    elif method == 'GREEDY':
+    elif args.m == 'GREEDY':
         root = GreedyStateNode()
-    elif method == 'MCTS':
+    elif args.m == 'MCTS':
         root = MCTSStateNode()
     with open(file, 'r') as f:
         # print(Fore.CYAN + f"Processing {file}")
@@ -49,14 +49,14 @@ def gen_decision(file, method, time_limit):
                 constant -= 1
         f.close()
     if len(root.columns) > 0:
-        if method == 'ENUM':
+        if args.m == 'ENUM':
             state_tree = EnumStateTree(root)
-        elif method == 'RANDOM':
+        elif args.m == 'RANDOM':
             state_tree = RandomStateTree(root)
-        elif method == 'GREEDY':
+        elif args.m == 'GREEDY':
             state_tree = GreedyStateTree(root)
-        elif method == 'MCTS':
-            state_tree = MCTSStateTree(root, m, constant, float(time_limit))
+        elif args.m == 'MCTS':
+            state_tree = MCTSStateTree(root, m, constant, float(args.t),args.r,args.v)
         state_tree.generate_tree()
         chosen_columns = state_tree.min_dict['min_state'].chosen_columns
         chosen_columns.extend(all_1_vector)
