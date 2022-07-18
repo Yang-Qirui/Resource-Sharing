@@ -143,10 +143,27 @@ class MCTSStateTree:
         while True:
             if len(new_node.columns) == 0:
                 break
-            indexes = random.sample(range(0, len(new_node.columns)), 2)
-            new_node.merge(
-                new_node.columns[indexes[0]], new_node.columns[indexes[1]])
+            max_1 = 0
+            for c in new_node.columns:
+                count_1 = c.prefix.count('1')
+                if count_1 > max_1:
+                    max_1 = count_1
+                    max_col = c
+            for c in new_node.columns:
+                if int(c.prefix, 2) | int(
+                        max_col.prefix, 2) != int(
+                        max_col.prefix, 2):
+                    new_node.merge(max_col, c)
+                    break
             new_node.cost += 1
+
+        # while True:
+        #     if len(new_node.columns) == 0:
+        #         break
+        #     indexes = random.sample(range(0, len(new_node.columns)), 2)
+        #     new_node.merge(
+        #         new_node.columns[indexes[0]], new_node.columns[indexes[1]])
+        #     new_node.cost += 1
         node.cost = new_node.cost
 
     def backpropagation(self, node, value):

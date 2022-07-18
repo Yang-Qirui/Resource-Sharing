@@ -33,14 +33,15 @@ def main(args):
             # print(decision)
             log_name = ''.join([all_test_files[i].split('.')[0], '.log'])
             log_dir = f'../data/reports/{args.m.lower()}/case{case}-m_{m}-n_{n}-c_{c}'
-            if args.r:
-                log_dir += '/random'
-            else:
-                log_dir += '/enum'
-            if args.v:
-                log_dir += '/count_visit'
-            else:
-                log_dir += '/cost_only'
+            if args.m == "MCTS":
+                if args.r:
+                    log_dir += '/random'
+                else:
+                    log_dir += '/enum'
+                if args.v:
+                    log_dir += '/count_visit'
+                else:
+                    log_dir += '/cost_only'
             if not os.path.exists(log_dir):
                 os.makedirs(log_dir)
             f = open(

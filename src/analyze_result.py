@@ -30,7 +30,7 @@ def main():
         enum_path = "../data/reports/enum"
         mcts_path = "../data/reports/mcts"
 
-        # enum_dir_path = '/'.join([enum_path, dir])
+        enum_dir_path = '/'.join([enum_path, dir])
         random_dir_path = '/'.join([random_path, dir])
         greedy_dir_path = '/'.join([greedy_path, dir])
         mcts_dir_enum_cost_path = '/'.join([mcts_path,
@@ -44,7 +44,7 @@ def main():
 
         all_file = os.listdir(random_dir_path)
 
-        # enum_tot = 0
+        enum_tot = 0
         random_tot = 0
         greedy_tot = 0
         mcts_e_c_tot = 0
@@ -53,7 +53,7 @@ def main():
         mcts_r_v_tot = 0
 
         for file in all_file:
-            # enum_file_path = '/'.join([enum_dir_path, file])
+            enum_file_path = '/'.join([enum_dir_path, file])
             random_file_path = '/'.join([random_dir_path, file])
             greedy_file_path = '/'.join([greedy_dir_path, file])
             mcts_file_enum_cost_path = '/'.join(
@@ -65,7 +65,7 @@ def main():
             mcts_file_random_visit_path = '/'.join(
                 [mcts_dir_random_visit_path, file])
 
-            # ef = open(enum_file_path, 'r')
+            ef = open(enum_file_path, 'r')
             rf = open(random_file_path, 'r')
             gf = open(greedy_file_path, 'r')
             mf_e_c = open(mcts_file_enum_cost_path, 'r')
@@ -73,7 +73,7 @@ def main():
             mf_r_c = open(mcts_file_random_cost_path, 'r')
             mf_r_v = open(mcts_file_random_visit_path, 'r')
 
-            # e_cost = int(ef.readline())
+            e_cost = int(ef.readline())
             r_cost = int(rf.readline())
             g_cost = int(gf.readline())
             mf_e_c_cost = int(mf_e_c.readline())
@@ -81,7 +81,7 @@ def main():
             mf_r_c_cost = int(mf_r_c.readline())
             mf_r_v_cost = int(mf_r_v.readline())
 
-            # enum_tot += e_cost
+            enum_tot += e_cost
             random_tot += r_cost
             greedy_tot += g_cost
             mcts_e_c_tot += mf_e_c_cost
@@ -111,41 +111,45 @@ def main():
             #     print(mcts_dir_random_visit_path, enum_file_path)
             #     exit(5)
 
-        # y0.append(random_tot - enum_tot)
-        y1.append(greedy_tot - random_tot)
-        y2.append(greedy_tot - mcts_e_c_tot)
-        y3.append(greedy_tot - mcts_e_v_tot)
-        y4.append(greedy_tot - mcts_r_c_tot)
-        y5.append(greedy_tot - mcts_r_v_tot)
+        y0.append(random_tot - enum_tot)
+        y1.append(greedy_tot - enum_tot)
+        y2.append(mcts_e_c_tot - enum_tot)
+        y3.append(mcts_e_v_tot - enum_tot)
+        y4.append(mcts_r_c_tot - enum_tot)
+        y5.append(mcts_r_v_tot - enum_tot)
 
-    # plt.scatter(x, enum)
-    # plt.scatter(x, random)
-    # plt.scatter(x, y0)
-    # plt.savefig(
-    #     "../data/figure/comparision_e_r.png")
-    # plt.clf()
+    plt.title("Enum-Random")
+    plt.scatter(x, y0)
+    plt.savefig(
+        "../data/figure/comparision_e_r.png")
+    plt.clf()
+    plt.title("Enum-Greedy")
     plt.scatter(x, y1)
     plt.savefig(
-        "../data/figure/comparision_g_r.png")
+        "../data/figure/comparision_e_g.png")
     plt.clf()
+    plt.title("Enum-MCTS_c")
     plt.scatter(x, y2)
     plt.savefig(
-        "../data/figure/comparision_g_m_enum_cost-only.png"
+        "../data/figure/comparision_e_m_enum_cost-only.png"
     )
     plt.clf()
+    plt.title("Enum-MCTS_v")
     plt.scatter(x, y3)
     plt.savefig(
-        "../data/figure/comparision_g_m_enum_count-visit.png"
+        "../data/figure/comparision_e_m_enum_count-visit.png"
     )
     plt.clf()
+    plt.title("Enum-MCTS_r_c")
     plt.scatter(x, y4)
     plt.savefig(
-        "../data/figure/comparision_g_m_random_cost-only.png"
+        "../data/figure/comparision_e_m_random_cost-only.png"
     )
     plt.clf()
+    plt.title("Enum-MCTS_r_v")
     plt.scatter(x, y5)
     plt.savefig(
-        "../data/figure/comparision_g_m_random_count-visit.png"
+        "../data/figure/comparision_e_m_random_count-visit.png"
     )
 
 
