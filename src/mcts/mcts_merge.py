@@ -78,7 +78,6 @@ class MCTSStateTree:
         self.root = root
         self.m = m
         self.c = c
-        self.visit = 0
         self.time_limit = time_limit
         self.is_random = random
         self.is_visit = visit
@@ -90,7 +89,6 @@ class MCTSStateTree:
         while node.children:
             # print([x.prefix for x in node.columns])
             node.visit += 1
-            self.visit += 1
             prob = len(node.expanded) == len(node.columns) * \
                 (len(node.columns) - 1) / 2
             if self.is_random:
@@ -171,7 +169,6 @@ class MCTSStateTree:
             parent's cost equal to the minimum cost of its children
         '''
         node.visit += 1
-        self.visit += 1
         while node:
             # print([x.prefix for x in node.columns])
             if node.cost > value:
@@ -214,7 +211,6 @@ class MCTSStateTree:
 
     def debug(self):
         l = [self.root]
-        print(f'tot {self.visit}')
         print(len(self.root.children))
         head = 0
         tail = 1
@@ -232,6 +228,7 @@ class MCTSStateTree:
         end = start
         while end - start < self.time_limit:
             node = self.selection()
+            print(node.cost, [x.prefix for x in node.columns])
             expand_node = self.expansion(node)
             if expand_node:
                 self.simulation(expand_node)

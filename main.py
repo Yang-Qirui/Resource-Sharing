@@ -1,7 +1,8 @@
 import time
-import re
-from pyverilog.vparser.parser import BlockingSubstitution, Times, Identifier
+from pyverilog.vparser.parser import BlockingSubstitution, Times, Identifier, Plus, Minus, Divide
 from pyverilog.vparser.parser import parse
+from divide_ope import divide_ope
+from remove_brackets import rm_brackets
 
 assignments = []
 assign_dict = {}
@@ -24,18 +25,44 @@ def init_assign_dict():
             assign_dict[lvalue] = [assign.right.var]
 
 
+def gen_code(node):
+    if type(node) is Identifier:
+        return node.name
+    types = {
+        Times: "*",
+        Divide: "/",
+        Plus: "+",
+        Minus: "-"
+    }
+    ope = types.get(type(node))
+    left = gen_code(node.left)
+    right = gen_code(node.right)
+    if ope == "-":
+        right = right.replace("+", "-")
+    return f"{left} {ope} {right}"
+
+
 def remove_brackets(filename):
     ast, _ = parse([filename])
-    ast.show()
+    # ast.show()
     get_assignments(ast)
     linenos = []
     for assign in assignments:
-        linenos.append(assign.lineno)
+        node = rm_brackets(assign.right)
+        new_node = assign.left.children(
+        )[0].name + " = " + gen_code(node) + ";"
+        divide_ope(gen_code(node))
+        linenos.append((assign.lineno, new_node))
     assignments.clear()
-    with open(filename, 'r') as f:
-        lines = f.readlines()
-        for lineno in linenos:
-            print(lines[lineno-1])
+    with open(filename, 'r') as input:
+        with open(filename[:-2]+"_convert.v", 'w') as output:
+            lines = input.readlines()
+            for lineno, new_code in linenos:
+                space = len(lines[lineno - 1]) - \
+                    len(lines[lineno - 1].lstrip())
+                lines[lineno -
+                      1] = new_code.rjust(space + len(new_code)) + "\n"
+            output.writelines(lines)
 
 
 def share_mul(times):
@@ -56,7 +83,8 @@ def share(list):
 
 def main():
     remove_brackets('test1.v')
-    ast, _ = parse(['test1.v'])
+    ast, _ = parse(['test1_convert.v'])
+    ast.show()
     start = time.time()
     get_assignments(ast)
     end = time.time()

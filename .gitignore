@@ -7,3 +7,6 @@ data/matrix
 data/reports
 /.vscode
 **/__pycache__
+parser.out
+parsetab.py
+*.v
