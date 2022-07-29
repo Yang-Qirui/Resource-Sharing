@@ -32,13 +32,13 @@ def get_privilege(curr, top):
     dict = {
         "#": 0,
         "+": 1,
-        "-": 2,
-        "/": 3,
-        "*": 4
+        "-": 1,
+        "/": 2,
+        "*": 2
     }
     curr_w = dict.get(curr)
     top_w = dict.get(top)
-    return curr_w >= top_w
+    return curr_w > top_w
 
 
 def divide_ope(equation):
@@ -61,10 +61,10 @@ def divide_ope(equation):
             type, category = (
                 "mul", mul) if top == "*" else ("div", div)
             if r in category:
-                category.remove(r)
+                category.pop(r.num)
                 r.num = None
             if l in category:
-                category.remove(l)
+                category.pop(l.num)
                 l.num = None
             new_binary = Binary(len(category), type,  l, r)
             category.append(new_binary)

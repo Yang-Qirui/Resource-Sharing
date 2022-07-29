@@ -29,7 +29,7 @@ def main(args):
         for i in range(len(all_test_files)):
             test_path = '/'.join([dir_path, all_test_files[i]])
             start = time.time()
-            cost, decision = gen_decision(test_path, args)
+            cost, decision = gen_decision_from_file(test_path, args)
             # print(decision)
             log_name = ''.join([all_test_files[i].split('.')[0], '.log'])
             log_dir = f'../data/reports/{args.m.lower()}/case{case}-m_{m}-n_{n}-c_{c}'
