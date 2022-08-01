@@ -2,20 +2,21 @@ import re
 
 
 class Node:
-    def __init__(self, num=None, type=None):
+    def __init__(self, branch, num=None, type=None):
         self.num = num
         self.type = type
+        self.branch = branch
 
 
 class Unary(Node):
-    def __init__(self, num=None, type=None, identifier=None):
-        super().__init__(num, type)
+    def __init__(self, branch, num=None, type=None, identifier=None):
+        super().__init__(num, type, branch)
         self.identifier = identifier
 
 
 class Binary(Node):
-    def __init__(self, num=None, type=None, left=None, right=None):
-        super().__init__(num, type)
+    def __init__(self, branch, num=None, type=None, left=None, right=None):
+        super().__init__(num, type, branch)
         self.left = left
         self.right = right
 
@@ -66,14 +67,14 @@ def divide_ope(equation):
             if l in category:
                 category.pop(l.num)
                 l.num = None
-            new_binary = Binary(len(category), type,  l, r)
+            new_binary = Binary(None, len(category), type,  l, r)
             category.append(new_binary)
             num_stack.append(new_binary)
         else:
             ident = num_stack.pop()
             type, category = (
                 "add", add) if top == "+" else ("minus", minus)
-            new_unary = Unary(len(category), type, ident)
+            new_unary = Unary(None, len(category), type, ident)
             category = add if top == "+" else minus
             category.append(new_unary)
 

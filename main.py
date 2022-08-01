@@ -1,31 +1,41 @@
 import argparse
+from copy import copy
 from src import gen_decision
-from pyverilog.vparser.parser import BlockingSubstitution, Times, Identifier, Plus, Minus, Divide
+from pyverilog.vparser.parser import *
 from pyverilog.vparser.parser import parse
 from divide_ope import divide_ope
 from remove_brackets import rm_brackets
 import numpy as np
 
 
-assignments = []
-assign_dict = {}
+def reverse_condition(node):
+    reverse_map = {
+        Eq: NotEq,
+        GreaterEq: LessThan,
+        GreaterThan: LessEq,
+        LessEq: GreaterThan,
+        LessThan: GreaterEq
+    }
+    return reverse_map.get(type(node))(node.left, node.right, node.lineno)
 
 
-def get_assignments(parent):
+def get_assignments(assignments, parent, conditions):
     for c in parent.children():
         if type(c) is BlockingSubstitution:
-            assignments.append(c)
+            assignments.append((c, conditions))
             return
-        get_assignments(c)
-
-
-def init_assign_dict():
-    for assign in assignments:
-        lvalue = getattr(assign.left.var, 'name')
-        if lvalue in assign_dict.keys():
-            assign_dict[lvalue].append(assign.right.var)
+        elif type(c) is IfStatement:
+            # print(type(c.children()[0]))
+            if c.true_statement:
+                new_cond = copy(conditions)
+                new_cond.append(c.children()[0])
+                get_assignments(assignments, c.true_statement, new_cond)
+            if c.false_statement:
+                new_cond = copy(conditions)
+                new_cond.append(reverse_condition(c.children()[0]))
+                get_assignments(assignments, c.false_statement, new_cond)
         else:
-            assign_dict[lvalue] = [assign.right.var]
+            get_assignments(assignments, c, conditions)
 
 
 def gen_code(node):
@@ -48,19 +58,29 @@ def gen_code(node):
 def share(filename, args):
     ast, _ = parse([filename])
     # ast.show()
-    get_assignments(ast)
+    assignments = []
+    get_assignments(assignments, ast, [])
+
+    # get_condition(ast)
+
     linenos = []
     opes = []
-    for assign in assignments:
+    for assign, condition in assignments:
+
+        assign.right.show()
+        for cond in condition:
+            cond.show()
+        print("\n")
+
         node = rm_brackets(assign.right)
         new_node = assign.left.children(
         )[0].name + " = " + gen_code(node) + ";"
         opes.append(divide_ope(gen_code(node)))
         linenos.append((assign.lineno, new_node))
 
-    share_bin([ope.div for ope in opes], args)
-    share_bin([ope.mul for ope in opes], args)
-    share_unary([ope.add for ope in opes], args)
+    # share_bin([ope.div for ope in opes], "DIV", args)
+    # share_bin([ope.mul for ope in opes], "MUL", args)
+    # share_unary([ope.add for ope in opes], args)
 
     assignments.clear()
     with open(filename, 'r') as input:
@@ -82,7 +102,7 @@ def get_max_sharing_part(opes):
     return max_ope
 
 
-def share_bin(bins, args):
+def share_bin(bins, type, args):
     bins = list(filter(lambda x: len(x) > 0, bins))
     # print([[(x.left, x.right) for x in _bin] for _bin in bins])
 
@@ -99,17 +119,21 @@ def share_bin(bins, args):
         for _bin in share_bins:
             for item in _bin:
                 '''Count all inputs without counting duplicated inputs'''
-                inputs.add(item.left)
+                inputs.add(item.right)
+                if type == 'MUL':
+                    inputs.add(item.left)
         print("inputs", inputs)
         arr = []
         for _bin in share_bins:
             row = []
-            left_set = set()
+            _set = set()
             '''TODO: duplicated inputs. eg.a + a'''
             for item in _bin:
-                left_set.add(item.left)
+                _set.add(item.right)
+                if type == "MUL":
+                    _set.add(item.left)
             for input in inputs:
-                if input in left_set:
+                if input in _set:
                     row.append('1')
                 else:
                     row.append('0')
