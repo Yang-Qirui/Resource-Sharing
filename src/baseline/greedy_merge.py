@@ -8,6 +8,8 @@ class GreedyStateNode:
         self.cost = 0
         self.chosen_columns = []
 
+    def
+
     def merge(self, col1, col2):
         '''merge col2 to col1'''
         self.columns.remove(col1)

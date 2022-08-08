@@ -10,15 +10,29 @@ class Node:
 
 class Unary(Node):
     def __init__(self, branch, num=None, type=None, identifier=None):
-        super().__init__(num, type, branch)
+        super().__init__(branch, num, type)
         self.identifier = identifier
+
+    def get_str(self):
+        return self.identifier
 
 
 class Binary(Node):
     def __init__(self, branch, num=None, type=None, left=None, right=None):
-        super().__init__(num, type, branch)
+        super().__init__(branch, num, type)
         self.left = left
         self.right = right
+
+    def get_str(self):
+        res = ''
+        if self.left is Binary:
+            res += self.left.get_str()
+        else:
+            res += 'left'
+        if self.type == "div":
+            return res + '/' + self.right
+        else:
+            return res + '*' + self.right
 
 
 class DividedOpes:
@@ -42,7 +56,7 @@ def get_privilege(curr, top):
     return curr_w > top_w
 
 
-def divide_ope(equation):
+def divide_ope(equation, branch):
     equation = equation.replace(" ", '')
     # print(equation)
     add = []
@@ -67,14 +81,14 @@ def divide_ope(equation):
             if l in category:
                 category.pop(l.num)
                 l.num = None
-            new_binary = Binary(None, len(category), type,  l, r)
+            new_binary = Binary(branch, len(category), type,  l, r)
             category.append(new_binary)
             num_stack.append(new_binary)
         else:
             ident = num_stack.pop()
             type, category = (
                 "add", add) if top == "+" else ("minus", minus)
-            new_unary = Unary(None, len(category), type, ident)
+            new_unary = Unary(branch, len(category), type, ident)
             category = add if top == "+" else minus
             category.append(new_unary)
 

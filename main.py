@@ -1,11 +1,16 @@
 import argparse
+from audioop import mul
 from copy import copy
+from share_graph import Graph
 from src import gen_decision
 from pyverilog.vparser.parser import *
 from pyverilog.vparser.parser import parse
-from divide_ope import divide_ope
+from divide_ope import Binary, divide_ope
 from remove_brackets import rm_brackets
 import numpy as np
+from store_share import Registers
+
+regs = Registers()
 
 
 def reverse_condition(node):
@@ -67,17 +72,21 @@ def share(filename, args):
     opes = []
     for assign, condition in assignments:
 
-        assign.right.show()
-        for cond in condition:
-            cond.show()
-        print("\n")
+        # assign.right.show()
+        # for cond in condition:
+        #     cond.show()
+        # print("\n")
 
         node = rm_brackets(assign.right)
         new_node = assign.left.children(
         )[0].name + " = " + gen_code(node) + ";"
-        opes.append(divide_ope(gen_code(node)))
+        opes.append(divide_ope(gen_code(node), condition))
         linenos.append((assign.lineno, new_node))
 
+    """ TODO: share cascade mul and div: a * b / c -> tmp / c. 
+        def share_cascade()
+    """
+    share_cascade([ope.div for ope in opes], [ope.mul for ope in opes], args)
     # share_bin([ope.div for ope in opes], "DIV", args)
     # share_bin([ope.mul for ope in opes], "MUL", args)
     # share_unary([ope.add for ope in opes], args)
@@ -102,6 +111,124 @@ def get_max_sharing_part(opes):
     return max_ope
 
 
+def share_cascade(divs, muls, args):
+    # print(divs, muls)
+    new_mul = []
+    new_div = []
+
+    def add_cascade(ope, _type, branch_div, branch_mul):
+        if type(ope.left) is Binary:
+            if ope.left.type == "mul":
+                branch_mul.append(ope.left)
+            elif ope.left.type == "div":
+                branch_div.append(ope.left)
+        if _type == "MUL":
+            if type(ope.right) is Binary:
+                if ope.right.type == "mul":
+                    branch_mul.append(ope.right)
+                elif ope.right.type == "div":
+                    branch_div.append(ope.riht)
+
+    div_dict = {}
+    mul_dict = {}
+    branches = []
+
+    for div in divs:
+        for d in div:
+            branch_div = []
+            branch_mul = []
+            add_cascade(d, "DIV", branch_div, branch_mul)
+            # print(branch_div, branch_mul)
+            if d.branch in branches:
+                div_dict[branches.index(d.branch)].extend(branch_div)
+                mul_dict[branches.index(d.branch)].extend(branch_mul)
+            else:
+                branches.append(d.branch)
+                div_dict[len(branches) - 1] = branch_div
+                mul_dict[len(branches) - 1] = branch_mul
+    for mul in muls:
+        for m in mul:
+            branch_div = []
+            branch_mul = []
+            add_cascade(m, "MUL", branch_div, branch_mul)
+            if m.branch in branches:
+                div_dict[branches.index(m.branch)].extend(branch_div)
+                mul_dict[branches.index(m.branch)].extend(branch_mul)
+            else:
+                branches.append(m.branch)
+                div_dict[len(branches) - 1] = branch_div
+                mul_dict[len(branches) - 1] = branch_mul
+
+    for _, v in div_dict.items():
+        if v:
+            new_div.append(v)
+    for _, v in mul_dict.items():
+        if v:
+            new_mul.append(v)
+
+    if len(new_mul) >= 2 or len(new_div) >= 2:
+        share_cascade(new_div, new_mul, args)
+    else:
+        print("No cascade")
+
+    # print("divs", divs)
+    # print("new_mul", new_mul)
+    # print("new_div", new_div)
+    share_mul(new_mul, args)
+    # share_bin(new_mul, "MUL", args)
+    # share_bin(new_div, "DIV", args)
+    return
+
+
+def share_mul(muls, args):
+    print("muls", [[(x.left, x.right) for x in y] for y in muls])
+    muls = list(filter(lambda x: len(x) > 0, muls))
+    while len(muls) > 1:
+        length = get_max_sharing_part(muls)
+        share_muls = []
+        for i in range(len(muls)):
+            share_muls.append(muls[i][:length])
+            muls[i] = muls[i][length:]
+        share_edges = set()
+        print("share_muls", [[(x.left, x.right)
+              for x in y] for y in share_muls])
+        for i in range(len(share_muls) - 1):
+            input_dict = {}
+            for j in range(len(share_muls[i])):
+                if share_muls[i][j].left in input_dict.keys():
+                    input_dict[share_muls[i][j].left].append(
+                        i * len(share_muls[i]) + j)
+                else:
+                    input_dict[share_muls[i][j].left] = [
+                        i * len(share_muls[i]) + j]
+                if share_muls[i][j].right in input_dict.keys():
+                    input_dict[share_muls[i][j].right].append(
+                        i * len(share_muls[i]) + j)
+                else:
+                    input_dict[share_muls[i][j].right] = [
+                        i * len(share_muls[i]) + j]
+            for j in range(len(share_muls[i + 1])):
+                if share_muls[i + 1][j].left in input_dict.keys():
+                    for v in input_dict[share_muls[i + 1][j].left]:
+                        share_edges.add((v, (i + 1) * len(share_muls[i]) + j))
+                if share_muls[i + 1][j].right in input_dict.keys():
+                    for v in input_dict[share_muls[i + 1][j].right]:
+                        share_edges.add((v, (i + 1) * len(share_muls[i]) + j))
+            # print(input_dict.keys())
+            g = Graph(len(share_muls) * len(share_muls[0]))
+            # print(share_edges)
+            for edge in share_edges:
+                g.add_edge(edge)
+            chains = g.choose_chain()
+            print(chains)
+            for chain in chains:
+                first = share_muls[i][chain[0]]
+                last = share_muls[i + 1][chain[1] % len(share_muls[0])]
+                print(((first.left, first.right), (last.left, last.right)))
+
+        muls = list(filter(lambda x: len(x) > 0, muls))
+
+
 def share_bin(bins, type, args):
     bins = list(filter(lambda x: len(x) > 0, bins))
     # print([[(x.left, x.right) for x in _bin] for _bin in bins])
@@ -123,6 +250,7 @@ def share_bin(bins, type, args):
                 if type == 'MUL':
                     inputs.add(item.left)
         print("inputs", inputs)
+        print([[(x.left, x.right) for x in y]for y in share_bins])
         arr = []
         for _bin in share_bins:
             row = []
@@ -174,27 +302,15 @@ def share_unary(unarys, args):
                     row.append('0')
             arr.append(row)
         np_arr = np.array(arr)
-        print(np_arr)
+        # print(np_arr)
         min_cost, chosen_columns = gen_decision.gen_decision(np_arr, args)
-        print(min_cost, chosen_columns)
+        # print(min_cost, chosen_columns)
         '''TODO: save results'''
         unarys = list(filter(lambda x: len(x) > 0, unarys))
 
 
 def main(args):
     share('test1.v', args)
-    # ast, _ = parse(['test1_convert.v'])
-    # # ast.show()
-    # start = time.time()
-    # get_assignments(ast)
-    # end = time.time()
-    # print(f"Get assignments finished. Spent {end-start} seconds")
-    # # print(assignments)
-    # start = time.time()
-    # init_assign_dict()
-    # end = time.time()
-    # print(f"Init dict finished. Spent {end-start} seconds")
-    # print(assign_dict)
 
 
 if __name__ == "__main__":
