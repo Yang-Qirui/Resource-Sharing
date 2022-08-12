@@ -136,7 +136,7 @@ def share_cascade(divs, muls, args):
                     branch_div.append(ope.right)
         return branch_div, branch_mul
 
-    def get_new_mul():
+    def get_new_mul_div():
         for mul in muls:
             for m in mul:
                 branch_div, branch_mul = add_cascade(
@@ -148,14 +148,6 @@ def share_cascade(divs, muls, args):
                     branches.append(m.branch)
                     div_dict[len(branches) - 1] = branch_div
                     mul_dict[len(branches) - 1] = branch_mul
-        for _, v in mul_dict.items():
-            if v:
-                new_mul.append(v)
-        for _, v in div_dict.items():
-            if v:
-                new_div.append(v)
-
-    def get_new_div():
         for div in divs:
             for d in div:
                 branch_div, branch_mul = add_cascade(
@@ -174,14 +166,10 @@ def share_cascade(divs, muls, args):
             if v:
                 new_div.append(v)
 
-    def clear():
-        div_dict = {}
-        mul_dict = {}
-        branches = {}
-
-    get_new_mul()
-    get_new_div()
-    clear()
+    get_new_mul_div()
+    div_dict = {}
+    mul_dict = {}
+    branches = []
 
     if len(new_div) >= 2 or len(new_mul) >= 2:
         share_cascade(new_div, new_mul, args)
@@ -195,15 +183,17 @@ def share_cascade(divs, muls, args):
     for branch_divs in divs:
         for div in branch_divs:
             if type(div.left) is Binary:
-                id = branches.index(div.branch)
-                div.left = new_mul[id][muls[id].index(
-                    div.left)].identifier
+                for id, mul in enumerate(muls):
+                    if div.left in mul:
+                        # id = branches.index(div.branch)
+                        div.left = new_mul[id][muls[id].index(
+                            div.left)].identifier
 
     print("after_new_mul", [[x.identifier if type(x) is Unary else (x.left)
                             for x in y]for y in new_mul])
     print("after_mul", muls)
 
-    get_new_div()
+    get_new_mul_div()
 
     print("after_div", [[(x.left, x.right) for x in y]for y in divs])
     share_div(new_div, args)
