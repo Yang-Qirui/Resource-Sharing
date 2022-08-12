@@ -1,16 +1,17 @@
+import numpy as np
+from remove_brackets import rm_brackets
+from divide_ope import Binary, Unary, divide_ope
 import argparse
 from audioop import mul
-from copy import copy
+from copy import copy, deepcopy
 from share_graph import Graph
 from src import gen_decision
 from pyverilog.vparser.parser import *
 from pyverilog.vparser.parser import parse
-from divide_ope import Binary, divide_ope
-from remove_brackets import rm_brackets
-import numpy as np
-from store_share import Registers
 
-regs = Registers()
+from store_share import SavedSharing
+# from pyverilog.ast_code_generator.codegen import ASTCodeGenerator
+storage = SavedSharing()
 
 
 def reverse_condition(node):
@@ -62,6 +63,7 @@ def gen_code(node):
 
 def share(filename, args):
     ast, _ = parse([filename])
+
     # ast.show()
     assignments = []
     get_assignments(assignments, ast, [])
@@ -112,11 +114,15 @@ def get_max_sharing_part(opes):
 
 
 def share_cascade(divs, muls, args):
-    # print(divs, muls)
+    div_dict = {}
+    mul_dict = {}
+    branches = []
     new_mul = []
     new_div = []
 
-    def add_cascade(ope, _type, branch_div, branch_mul):
+    def add_cascade(ope, _type):
+        branch_div = []
+        branch_mul = []
         if type(ope.left) is Binary:
             if ope.left.type == "mul":
                 branch_mul.append(ope.left)
@@ -127,151 +133,232 @@ def share_cascade(divs, muls, args):
                 if ope.right.type == "mul":
                     branch_mul.append(ope.right)
                 elif ope.right.type == "div":
-                    branch_div.append(ope.riht)
+                    branch_div.append(ope.right)
+        return branch_div, branch_mul
 
-    div_dict = {}
-    mul_dict = {}
-    branches = []
+    def get_new_mul():
+        for mul in muls:
+            for m in mul:
+                branch_div, branch_mul = add_cascade(
+                    m, "MUL")
+                if m.branch in branches:
+                    div_dict[branches.index(m.branch)].extend(branch_div)
+                    mul_dict[branches.index(m.branch)].extend(branch_mul)
+                else:
+                    branches.append(m.branch)
+                    div_dict[len(branches) - 1] = branch_div
+                    mul_dict[len(branches) - 1] = branch_mul
+        for _, v in mul_dict.items():
+            if v:
+                new_mul.append(v)
+        for _, v in div_dict.items():
+            if v:
+                new_div.append(v)
 
-    for div in divs:
-        for d in div:
-            branch_div = []
-            branch_mul = []
-            add_cascade(d, "DIV", branch_div, branch_mul)
-            # print(branch_div, branch_mul)
-            if d.branch in branches:
-                div_dict[branches.index(d.branch)].extend(branch_div)
-                mul_dict[branches.index(d.branch)].extend(branch_mul)
-            else:
-                branches.append(d.branch)
-                div_dict[len(branches) - 1] = branch_div
-                mul_dict[len(branches) - 1] = branch_mul
-    for mul in muls:
-        for m in mul:
-            branch_div = []
-            branch_mul = []
-            add_cascade(m, "MUL", branch_div, branch_mul)
-            if m.branch in branches:
-                div_dict[branches.index(m.branch)].extend(branch_div)
-                mul_dict[branches.index(m.branch)].extend(branch_mul)
-            else:
-                branches.append(m.branch)
-                div_dict[len(branches) - 1] = branch_div
-                mul_dict[len(branches) - 1] = branch_mul
+    def get_new_div():
+        for div in divs:
+            for d in div:
+                branch_div, branch_mul = add_cascade(
+                    d, "DIV")
+                if d.branch in branches:
+                    div_dict[branches.index(d.branch)].extend(branch_div)
+                    mul_dict[branches.index(d.branch)].extend(branch_mul)
+                else:
+                    branches.append(d.branch)
+                    div_dict[len(branches) - 1] = branch_div
+                    mul_dict[len(branches) - 1] = branch_mul
+        for _, v in mul_dict.items():
+            if v:
+                new_mul.append(v)
+        for _, v in div_dict.items():
+            if v:
+                new_div.append(v)
 
-    for _, v in div_dict.items():
-        if v:
-            new_div.append(v)
-    for _, v in mul_dict.items():
-        if v:
-            new_mul.append(v)
+    def clear():
+        div_dict = {}
+        mul_dict = {}
+        branches = {}
 
-    if len(new_mul) >= 2 or len(new_div) >= 2:
+    get_new_mul()
+    get_new_div()
+    clear()
+
+    if len(new_div) >= 2 or len(new_mul) >= 2:
         share_cascade(new_div, new_mul, args)
     else:
-        print("No cascade")
+        '''TODO'''
+        print("No cascade. Directly assign")
+        return
 
-    # print("divs", divs)
-    # print("new_mul", new_mul)
-    # print("new_div", new_div)
     share_mul(new_mul, args)
-    # share_bin(new_mul, "MUL", args)
-    # share_bin(new_div, "DIV", args)
+
+    for branch_divs in divs:
+        for div in branch_divs:
+            if type(div.left) is Binary:
+                id = branches.index(div.branch)
+                div.left = new_mul[id][muls[id].index(
+                    div.left)].identifier
+
+    print("after_new_mul", [[x.identifier if type(x) is Unary else (x.left)
+                            for x in y]for y in new_mul])
+    print("after_mul", muls)
+
+    get_new_div()
+
+    print("after_div", [[(x.left, x.right) for x in y]for y in divs])
+    share_div(new_div, args)
     return
 
 
 def share_mul(muls, args):
-    print("muls", [[(x.left, x.right) for x in y] for y in muls])
+    print("muls", [[(x.left, x.right, x.branch)
+                    for x in y] for y in muls])
     muls = list(filter(lambda x: len(x) > 0, muls))
-    while len(muls) > 1:
-        length = get_max_sharing_part(muls)
-        share_muls = []
-        for i in range(len(muls)):
-            share_muls.append(muls[i][:length])
-            muls[i] = muls[i][length:]
+    if not muls:
+        return
+    chains = []
+    for i in range(len(muls) - 1):
         share_edges = set()
-        print("share_muls", [[(x.left, x.right)
-              for x in y] for y in share_muls])
-        for i in range(len(share_muls) - 1):
-            input_dict = {}
-            for j in range(len(share_muls[i])):
-                if share_muls[i][j].left in input_dict.keys():
-                    input_dict[share_muls[i][j].left].append(
-                        i * len(share_muls[i]) + j)
-                else:
-                    input_dict[share_muls[i][j].left] = [
-                        i * len(share_muls[i]) + j]
-                if share_muls[i][j].right in input_dict.keys():
-                    input_dict[share_muls[i][j].right].append(
-                        i * len(share_muls[i]) + j)
-                else:
-                    input_dict[share_muls[i][j].right] = [
-                        i * len(share_muls[i]) + j]
-            for j in range(len(share_muls[i + 1])):
-                if share_muls[i + 1][j].left in input_dict.keys():
-                    for v in input_dict[share_muls[i + 1][j].left]:
-                        share_edges.add((v, (i + 1) * len(share_muls[i]) + j))
-                if share_muls[i + 1][j].right in input_dict.keys():
-                    for v in input_dict[share_muls[i + 1][j].right]:
-                        share_edges.add((v, (i + 1) * len(share_muls[i]) + j))
-            # print(input_dict.keys())
-            g = Graph(len(share_muls) * len(share_muls[0]))
-            # print(share_edges)
-            for edge in share_edges:
-                g.add_edge(edge)
-            chains = g.choose_chain()
-            print(chains)
-            for chain in chains:
-                first = share_muls[i][chain[0]]
-                last = share_muls[i + 1][chain[1] % len(share_muls[0])]
-                print(((first.left, first.right), (last.left, last.right)))
+        input_dict = {}
+        for j in range(len(muls[i])):
+            if muls[i][j].left in input_dict.keys():
+                input_dict[muls[i][j].left].append(
+                    i * len(muls[i]) + j)
+            else:
+                input_dict[muls[i][j].left] = [
+                    i * len(muls[i]) + j]
+            if muls[i][j].right in input_dict.keys():
+                input_dict[muls[i][j].right].append(
+                    i * len(muls[i]) + j)
+            else:
+                input_dict[muls[i][j].right] = [
+                    i * len(muls[i]) + j]
+        for j in range(len(muls[i + 1])):
+            if muls[i + 1][j].left in input_dict.keys():
+                for v in input_dict[muls[i + 1][j].left]:
+                    share_edges.add((v, j))
+            if muls[i + 1][j].right in input_dict.keys():
+                for v in input_dict[muls[i + 1][j].right]:
+                    share_edges.add((v, j))
+        g = Graph(len(muls[i]), len(muls[i + 1]))
+        for edge in share_edges:
+            g.add_edge(edge)
+        chain = g.choose_chain()
+        chains.append(chain)
 
-        muls = list(filter(lambda x: len(x) > 0, muls))
-
-
-def share_bin(bins, type, args):
-    bins = list(filter(lambda x: len(x) > 0, bins))
-    # print([[(x.left, x.right) for x in _bin] for _bin in bins])
-
-    while len(bins) > 1:
-        length = get_max_sharing_part(bins)
-        share_bins = []
-        # print(divs)
-        for i in range(len(bins)):
-            '''TODO: not randomly choose'''
-            share_bins.append(bins[i][:length])
-            bins[i] = bins[i][length:]
-        # print([[(x.left, x.right) for x in _bin] for _bin in bins])
-        inputs = set()
-        for _bin in share_bins:
-            for item in _bin:
-                '''Count all inputs without counting duplicated inputs'''
-                inputs.add(item.right)
-                if type == 'MUL':
-                    inputs.add(item.left)
-        print("inputs", inputs)
-        print([[(x.left, x.right) for x in y]for y in share_bins])
+    # print(chains)
+    while len(chains) > 1:
+        chains[0].sort(key=lambda x: x[-1])
+        chains[1].sort(key=lambda x: x[0])
+        i = j = 0
+        while i < len(chains[0]) and j < len(chains[1]):
+            if chains[0][i][-1] == chains[1][j][0]:
+                chains[0][i] += (chains[1][j][-1],)
+                i += 1
+                j += 1
+            elif chains[0][i][-1] < chains[1][j][0]:
+                i += 1
+            else:
+                j += 1
+        chains.pop(1)
+    print('chain', chains)
+    for chain in chains[0]:
+        input_set = set()
+        for i, index in enumerate(chain):
+            input_set.add(muls[i][index].left)
+            input_set.add(muls[i][index].right)
+        print("input_set", input_set)
         arr = []
-        for _bin in share_bins:
+        for i, index in enumerate(chain):
             row = []
-            _set = set()
-            '''TODO: duplicated inputs. eg.a + a'''
-            for item in _bin:
-                _set.add(item.right)
-                if type == "MUL":
-                    _set.add(item.left)
-            for input in inputs:
-                if input in _set:
+            for input in input_set:
+                if input == muls[i][index].left or input == muls[i][index].right:
                     row.append('1')
                 else:
                     row.append('0')
             arr.append(row)
         np_arr = np.array(arr)
-        print(np_arr)
-        min_cost, chosen_columns = gen_decision.gen_decision(np_arr, args)
-        print(min_cost, chosen_columns)
-        """TODO: save results"""
-        bins = list(filter(lambda x: len(x) > 0, bins))
+        # print(np_arr)
+        min_cost, chosen_columns, rest_columns = gen_decision.gen_decision(
+            np_arr, args)
+        storage.save_result(muls, chosen_columns, list(input_set), "*", chain)
+        # print(min_cost, chosen_columns, rest_columns)
+
+
+def share_div(divs, args):
+    print("divs", [[(x.left, x.right, x.branch)
+                   for x in y] for y in divs])
+    divs = list(filter(lambda x: len(x) > 0, divs))
+    if not divs:
+        return
+    chains = []
+    for i in range(len(divs) - 1):
+        share_edges = set()
+        input_dict = {}
+        for j in range(len(divs[i])):
+            # if divs[i][j].left in input_dict.keys():
+            #     input_dict[divs[i][j].left].append(
+            #         i * len(divs[i]) + j)
+            # else:
+            #     input_dict[divs[i][j].left] = [
+            #         i * len(divs[i]) + j]
+            if divs[i][j].right in input_dict.keys():
+                input_dict[divs[i][j].right].append(
+                    i * len(divs[i]) + j)
+            else:
+                input_dict[divs[i][j].right] = [
+                    i * len(divs[i]) + j]
+        for j in range(len(divs[i + 1])):
+            # if divs[i + 1][j].left in input_dict.keys():
+            #     for v in input_dict[divs[i + 1][j].left]:
+            #         share_edges.add((v, j))
+            if divs[i + 1][j].right in input_dict.keys():
+                for v in input_dict[divs[i + 1][j].right]:
+                    share_edges.add((v, j))
+        g = Graph(len(divs[i]), len(divs[i + 1]))
+        for edge in share_edges:
+            g.add_edge(edge)
+        chain = g.choose_chain()
+        chains.append(chain)
+
+    # print(chains)
+    while len(chains) > 1:
+        chains[0].sort(key=lambda x: x[-1])
+        chains[1].sort(key=lambda x: x[0])
+        i = j = 0
+        while i < len(chains[0]) and j < len(chains[1]):
+            if chains[0][i][-1] == chains[1][j][0]:
+                chains[0][i] += (chains[1][j][-1],)
+                i += 1
+                j += 1
+            elif chains[0][i][-1] < chains[1][j][0]:
+                i += 1
+            else:
+                j += 1
+        chains.pop(1)
+    print('chain', chains)
+    for chain in chains[0]:
+        input_set = set()
+        for i, index in enumerate(chain):
+            # input_set.add(divs[i][index].left)
+            input_set.add(divs[i][index].right)
+        print("input_set", input_set)
+        arr = []
+        for i, index in enumerate(chain):
+            row = []
+            for input in input_set:
+                # if input == divs[i][index].left or input == divs[i][index].right:
+                if input == divs[i][index].right:
+                    row.append('1')
+                else:
+                    row.append('0')
+            arr.append(row)
+        np_arr = np.array(arr)
+        # print(np_arr)
+        min_cost, chosen_columns, rest_columns = gen_decision.gen_decision(
+            np_arr, args)
+        storage.save_result(divs, chosen_columns, list(input_set), "*", chain)
+        # print(min_cost, chosen_columns, rest_columns)
 
 
 def share_unary(unarys, args):

@@ -108,7 +108,9 @@ def gen_decision(A, args):
         chosen_columns = state_tree.min_dict['min_state'].chosen_columns
         chosen_columns.extend(all_1_vector)
         min_cost = state_tree.min_dict['min_cost'] + len(all_1_vector)
+        rest_columns = state_tree.min_dict['min_state'].columns
     else:
         chosen_columns = all_1_vector
         min_cost = len(all_1_vector)
-    return min_cost, chosen_columns
+        rest_columns = []
+    return min_cost, chosen_columns, rest_columns

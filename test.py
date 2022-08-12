@@ -1,22 +1,7 @@
-class Solution:
-
-    def makeLargestSpecial(self, s: str) -> str:
-        # print(s)
-        if len(s) <= 2:
-            return s
-        cnt = left = 0
-        specials = []
-        for i, c in enumerate(s):
-            if c == '1':
-                cnt += 1
-            else:
-                cnt -= 1
-            if cnt == 0:
-                specials.append(f"1{self.makeLargestSpecial(s[left + 1:i])}0")
-                left = i + 1
-        specials.sort(reverse=True)
-        return "".join(specials)
-
-
-s = Solution()
-print(s.makeLargestSpecial('11011000'))
+# a = [3, 2, 1, 3, 4]
+# print(enumerate(a))
+# b = [(index, v) for index, v in enumerate(a)]
+# b.sort(key=lambda x: x[-1])
+# for id, v in b:
+#     print(id, v)
+print(bin(3)[2:].rjust(len([1, 2, 3]), '0'))

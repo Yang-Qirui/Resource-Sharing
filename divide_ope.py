@@ -28,7 +28,7 @@ class Binary(Node):
         if self.left is Binary:
             res += self.left.get_str()
         else:
-            res += 'left'
+            res += self.left
         if self.type == "div":
             return res + '/' + self.right
         else:

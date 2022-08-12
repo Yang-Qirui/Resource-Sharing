@@ -8,7 +8,18 @@ class GreedyStateNode:
         self.cost = 0
         self.chosen_columns = []
 
-    def
+    def stop(self):
+        if not self.columns:
+            return True
+        for i in range(len(self.columns[0].prefix)):
+            zero_line = True
+            for c in self.columns:
+                if c.prefix[i] != '0':
+                    zero_line = False
+                    break
+            if zero_line:
+                return True
+        return False
 
     def merge(self, col1, col2):
         '''merge col2 to col1'''
@@ -60,7 +71,7 @@ class GreedyStateTree:
         self.min_dict = {'min_cost': np.inf, 'min_state': None}
 
     def _generate_tree(self, node):
-        while len(node.columns) > 0:
+        while not node.stop():
             max_1 = 0
             for c in node.columns:
                 one_count = c.prefix.count('1')
