@@ -37,9 +37,9 @@ class SavedSharing:
         self.blocks = Blocks()
 
     def clear(self):
-        self.add_reg_stacks.regs.clear()
-        self.mul_reg_stacks.regs.clear()
-        self.div_reg_stacks.regs.clear()
+        self.add_reg_stacks.regs = []
+        self.mul_reg_stacks.regs = []
+        self.div_reg_stacks.regs = []
 
     def save_result(self, shared, chosen_columns, inputs, _type, chain):
         ''' {input:[condition]}'''
@@ -55,20 +55,41 @@ class SavedSharing:
                             assign_strategy[inputs[input_id]] = [
                                 shared[id][0].branch]
             reg_dict = {
-                "+": self.add_reg_stacks,
-                "*": self.mul_reg_stacks,
-                "/": self.div_reg_stacks
+                "add": self.add_reg_stacks,
+                "mul": self.mul_reg_stacks,
+                "div": self.div_reg_stacks
             }
             reg_stacks = reg_dict.get(_type)
+            # print("assign", assign_strategy)
             reg_stacks.assign_reg(assign_strategy)
             for reg in reg_stacks.regs:
                 pass
+        print(reg_stacks.regs)
         new_key = self.blocks.add_block(reg_stacks.regs, _type)
         for id, item in enumerate(chain):
             shared[id][item] = Unary(
-                shared[id][item].branch, shared[id][item].branch, None, new_key)
+                shared[id][item].branch, shared[id][item].num, None, new_key)
         print([[x.identifier if type(x) is Unary else (x.left)
               for x in y]for y in shared])
         # shared.
-        # print(self.blocks.blocks)
+        print("blocks", self.blocks.blocks)
         self.clear()
+
+    def assign_extra(self, shared):
+        for id, share in enumerate(shared[0]):
+            reg_dict = {
+                "add": self.add_reg_stacks,
+                "mul": self.mul_reg_stacks,
+                "div": self.div_reg_stacks
+            }
+            reg_stacks = reg_dict.get(share.type)
+            assign_strategy = {share.left: share.branch}
+            reg_stacks.assign_reg(assign_strategy)
+            print("share.right", share.right)
+            assign_strategy = {share.right: share.branch}
+            reg_stacks.assign_reg(assign_strategy)
+            print("extra", reg_stacks.regs)
+            new_key = self.blocks.add_block(reg_stacks.regs, share.type)
+            shared[0][id] = Unary(share.branch, share.num, None, new_key)
+            self.clear()
+            # assign_strategy[]

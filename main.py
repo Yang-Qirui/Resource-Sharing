@@ -1,9 +1,9 @@
+from ast import arg
 import numpy as np
 from remove_brackets import rm_brackets
 from divide_ope import Binary, Unary, divide_ope
 import argparse
-from audioop import mul
-from copy import copy, deepcopy
+from copy import copy
 from share_graph import Graph
 from src import gen_decision
 from pyverilog.vparser.parser import *
@@ -25,23 +25,29 @@ def reverse_condition(node):
     return reverse_map.get(type(node))(node.left, node.right, node.lineno)
 
 
-def get_assignments(assignments, parent, conditions):
+def get_assignments(assignments, parent, conditions, output=None):
     for c in parent.children():
-        if type(c) is BlockingSubstitution:
-            assignments.append((c, conditions))
-            return
-        elif type(c) is IfStatement:
+        if type(c) is Assign:
+            output = c.left.var
+        elif type(c) is Cond:
             # print(type(c.children()[0]))
-            if c.true_statement:
+            print("false", c.false_value, type(c.false_value))
+            print("true", c.true_value)
+            print("cond", c.cond)
+
+            if c.true_value:
                 new_cond = copy(conditions)
-                new_cond.append(c.children()[0])
-                get_assignments(assignments, c.true_statement, new_cond)
-            if c.false_statement:
+                new_cond.append(c.cond)
+                assignments.append((c.true_value, new_cond, output))
+                # get_assignments(assignments, c.true_value, new_cond)
+            if type(c.false_value) is not Cond:
                 new_cond = copy(conditions)
-                new_cond.append(reverse_condition(c.children()[0]))
-                get_assignments(assignments, c.false_statement, new_cond)
-        else:
-            get_assignments(assignments, c, conditions)
+                new_cond.append(reverse_condition(c.cond))
+                assignments.append((c.false_value, new_cond, output))
+                # get_assignments(assignments, c.false_value, new_cond)
+            else:
+                conditions.append(reverse_condition(c.cond))
+        get_assignments(assignments, c, conditions, output)
 
 
 def gen_code(node):
@@ -64,31 +70,33 @@ def gen_code(node):
 def share(filename, args):
     ast, _ = parse([filename])
 
-    # ast.show()
+    ast.show()
     assignments = []
     get_assignments(assignments, ast, [])
-
+    print(assignments)
     # get_condition(ast)
 
     linenos = []
     opes = []
-    for assign, condition in assignments:
+    for assign, condition, output in assignments:
 
         # assign.right.show()
         # for cond in condition:
         #     cond.show()
         # print("\n")
 
-        node = rm_brackets(assign.right)
-        new_node = assign.left.children(
-        )[0].name + " = " + gen_code(node) + ";"
-        opes.append(divide_ope(gen_code(node), condition))
-        linenos.append((assign.lineno, new_node))
+        # node = rm_brackets(assign.right)
+        # new_node = assign.left.children(
+        # )[0].name + " = " + gen_code(node) + ";"
+        print(gen_code(assign))
+        opes.append(divide_ope(gen_code(assign), condition))
+        # linenos.append((assign.lineno, new_node))
 
     """ TODO: share cascade mul and div: a * b / c -> tmp / c. 
         def share_cascade()
     """
-    share_cascade([ope.div for ope in opes], [ope.mul for ope in opes], args)
+    share_cascade([ope.div for ope in opes], args, "div")
+    # print(storage.blocks.blocks)
     # share_bin([ope.div for ope in opes], "DIV", args)
     # share_bin([ope.mul for ope in opes], "MUL", args)
     # share_unary([ope.add for ope in opes], args)
@@ -113,97 +121,158 @@ def get_max_sharing_part(opes):
     return max_ope
 
 
-def share_cascade(divs, muls, args):
-    div_dict = {}
-    mul_dict = {}
-    branches = []
-    new_mul = []
-    new_div = []
-
-    def add_cascade(ope, _type):
-        branch_div = []
-        branch_mul = []
-        if type(ope.left) is Binary:
-            if ope.left.type == "mul":
-                branch_mul.append(ope.left)
-            elif ope.left.type == "div":
-                branch_div.append(ope.left)
-        if _type == "MUL":
-            if type(ope.right) is Binary:
-                if ope.right.type == "mul":
-                    branch_mul.append(ope.right)
-                elif ope.right.type == "div":
-                    branch_div.append(ope.right)
-        return branch_div, branch_mul
-
-    def get_new_mul_div():
-        for mul in muls:
-            for m in mul:
-                branch_div, branch_mul = add_cascade(
-                    m, "MUL")
-                if m.branch in branches:
-                    div_dict[branches.index(m.branch)].extend(branch_div)
-                    mul_dict[branches.index(m.branch)].extend(branch_mul)
-                else:
-                    branches.append(m.branch)
-                    div_dict[len(branches) - 1] = branch_div
-                    mul_dict[len(branches) - 1] = branch_mul
-        for div in divs:
-            for d in div:
-                branch_div, branch_mul = add_cascade(
-                    d, "DIV")
-                if d.branch in branches:
-                    div_dict[branches.index(d.branch)].extend(branch_div)
-                    mul_dict[branches.index(d.branch)].extend(branch_mul)
-                else:
-                    branches.append(d.branch)
-                    div_dict[len(branches) - 1] = branch_div
-                    mul_dict[len(branches) - 1] = branch_mul
-        for _, v in mul_dict.items():
-            if v:
-                new_mul.append(v)
-        for _, v in div_dict.items():
-            if v:
-                new_div.append(v)
-
-    get_new_mul_div()
-    div_dict = {}
-    mul_dict = {}
-    branches = []
-
-    if len(new_div) >= 2 or len(new_mul) >= 2:
-        share_cascade(new_div, new_mul, args)
-    else:
-        '''TODO'''
-        print("No cascade. Directly assign")
+def share_cascade(shares, args, _type):
+    if len(shares) == 0:
         return
+    elif len(shares) == 1:
+        print("len1", [(x.left, x.right) for x in shares[0]])
+        storage.assign_extra(shares)
+        print("_len1", [x.identifier for x in shares[0]])
+        return
+    new_shares_mul = []
+    share_mul_id = []
+    new_shares_div = []
+    share_div_id = []
+    for i, branch_share in enumerate(shares):
+        cascade_mul = []
+        id_mul = []
+        cascade_div = []
+        id_div = []
+        for id, share in enumerate(branch_share):
+            if type(share.left) is Binary:
+                if share.left.type == "div":
+                    cascade_div.append(share.left)
+                    id_div.append((i, id))
+                else:
+                    cascade_mul.append(share.left)
+                    id_mul.append((i, id))
+        if cascade_mul:
+            new_shares_mul.append(cascade_mul)
+            share_mul_id.append(id_mul)
+        if cascade_div:
+            new_shares_div.append(cascade_div)
+            share_div_id.append(id_div)
+    share_cascade(new_shares_div, args, "div")
+    share_cascade(new_shares_mul, args, "mul")
+    print("new_shares_mul", [[x.identifier for x in y]for y in new_shares_mul])
+    print("share_mul_id", [[x for x in y]for y in share_mul_id])
+    print("new_shares_div", [[x.identifier for x in y]for y in new_shares_div])
+    print("share_div_id", [[x for x in y]for y in share_div_id])
+    for j, ids in enumerate(share_mul_id):
+        for i, id in ids:
+            shares[i][id].left = new_shares_mul[j][id].identifier
+    for j, ids in enumerate(share_div_id):
+        for i, id in ids:
+            shares[i][id].left = new_shares_div[j][id].identifier
+    if _type == "mul":
+        share_mul(shares, args)
+    else:
+        print("_divs", [[(x.identifier) if type(x) is Unary else (
+            x.left, x.right) for x in y]for y in shares])
+        share_div(shares, args)
 
-    share_mul(new_mul, args)
 
-    for branch_divs in divs:
-        for div in branch_divs:
-            if type(div.left) is Binary:
-                for id, mul in enumerate(muls):
-                    if div.left in mul:
-                        # id = branches.index(div.branch)
-                        div.left = new_mul[id][muls[id].index(
-                            div.left)].identifier
+# def share_cascade(divs, muls, args):
+#     div_dict = {}
+#     mul_dict = {}
+#     branches = []
+#     new_mul = []
+#     new_div = []
 
-    print("after_new_mul", [[x.identifier if type(x) is Unary else (x.left)
-                            for x in y]for y in new_mul])
-    print("after_mul", muls)
+#     def add_cascade(ope, _type):
+#         branch_div = []
+#         branch_mul = []
+#         if type(ope.left) is Binary:
+#             if ope.left.type == "mul":
+#                 branch_mul.append(ope.left)
+#             elif ope.left.type == "div":
+#                 branch_div.append(ope.left)
+#         if _type == "MUL":
+#             if type(ope.right) is Binary:
+#                 if ope.right.type == "mul":
+#                     branch_mul.append(ope.right)
+#                 elif ope.right.type == "div":
+#                     branch_div.append(ope.right)
+#         return branch_div, branch_mul
 
-    get_new_mul_div()
+#     def get_new_mul_div():
+#         for mul in muls:
+#             for m in mul:
+#                 branch_div, branch_mul = add_cascade(
+#                     m, "MUL")
+#                 if m.branch in branches:
+#                     div_dict[branches.index(m.branch)].extend(branch_div)
+#                     mul_dict[branches.index(m.branch)].extend(branch_mul)
+#                 else:
+#                     branches.append(m.branch)
+#                     div_dict[len(branches) - 1] = branch_div
+#                     mul_dict[len(branches) - 1] = branch_mul
+#         for div in divs:
+#             for d in div:
+#                 branch_div, branch_mul = add_cascade(
+#                     d, "DIV")
+#                 if d.branch in branches:
+#                     div_dict[branches.index(d.branch)].extend(branch_div)
+#                     mul_dict[branches.index(d.branch)].extend(branch_mul)
+#                 else:
+#                     branches.append(d.branch)
+#                     div_dict[len(branches) - 1] = branch_div
+#                     mul_dict[len(branches) - 1] = branch_mul
+#         for _, v in mul_dict.items():
+#             if v:
+#                 new_mul.append(v)
+#         for _, v in div_dict.items():
+#             if v:
+#                 new_div.append(v)
 
-    print("after_div", [[(x.left, x.right) for x in y]for y in divs])
-    share_div(new_div, args)
-    return
+#     get_new_mul_div()
+#     div_dict = {}
+#     mul_dict = {}
+#     branches = []
+
+#     if len(new_div) >= 2 or len(new_mul) >= 2:
+#         share_cascade(new_div, new_mul, args)
+#     else:
+#         '''TODO'''
+#         print([[(x.left, x.right, x.branch) for x in y]for y in divs])
+#         print([[(x.left, x.right, x.branch) for x in y]for y in muls])
+#         if len(divs) == 1:
+#             storage.assign_extra(divs, "/")
+#         if len(muls) == 1:
+#             storage.assign_extra(muls, '*')
+#         print("No cascade. Directly assign")
+#         return
+
+#     share_mul(new_mul, args)
+
+#     for branch_divs in divs:
+#         for div in branch_divs:
+#             if type(div.left) is Binary:
+#                 for id, mul in enumerate(muls):
+#                     if div.left in mul:
+#                         # id = branches.index(div.branch)
+#                         div.left = new_mul[id][muls[id].index(
+#                             div.left)].identifier
+
+#     # print("after_new_mul", [[x.identifier if type(x) is Unary else (x.left)
+#     #                         for x in y]for y in new_mul])
+#     # print("after_mul", muls)
+
+#     # get_new_mul_div()
+
+#     print("after_div", [[(x.left, x.right) for x in y]for y in divs])
+#     print("new_div", new_div)
+#     share_div(new_div, args)
+#     return
 
 
 def share_mul(muls, args):
     print("muls", [[(x.left, x.right, x.branch)
                     for x in y] for y in muls])
     muls = list(filter(lambda x: len(x) > 0, muls))
+    if len(muls) == 1:
+        storage.assign_extra(muls, '*')
+        return
     if not muls:
         return
     chains = []
@@ -271,7 +340,8 @@ def share_mul(muls, args):
         # print(np_arr)
         min_cost, chosen_columns, rest_columns = gen_decision.gen_decision(
             np_arr, args)
-        storage.save_result(muls, chosen_columns, list(input_set), "*", chain)
+        storage.save_result(muls, chosen_columns,
+                            list(input_set), "mul", chain)
         # print(min_cost, chosen_columns, rest_columns)
 
 
@@ -279,6 +349,9 @@ def share_div(divs, args):
     print("divs", [[(x.left, x.right, x.branch)
                    for x in y] for y in divs])
     divs = list(filter(lambda x: len(x) > 0, divs))
+    if len(divs) == 1:
+        storage.assign_extra(divs, '/')
+        return
     if not divs:
         return
     chains = []
@@ -347,7 +420,8 @@ def share_div(divs, args):
         # print(np_arr)
         min_cost, chosen_columns, rest_columns = gen_decision.gen_decision(
             np_arr, args)
-        storage.save_result(divs, chosen_columns, list(input_set), "*", chain)
+        storage.save_result(divs, chosen_columns,
+                            list(input_set), "div", chain)
         # print(min_cost, chosen_columns, rest_columns)
 
 
