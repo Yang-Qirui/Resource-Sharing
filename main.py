@@ -1,9 +1,8 @@
-from ast import arg
 import numpy as np
-from remove_brackets import rm_brackets
 from divide_ope import Binary, Unary, divide_ope
 import argparse
 from copy import copy
+from gen_verilog import gen_verilog
 from share_graph import Graph
 from src import gen_decision
 from pyverilog.vparser.parser import *
@@ -95,30 +94,44 @@ def share(filename, args):
     """ TODO: share cascade mul and div: a * b / c -> tmp / c. 
         def share_cascade()
     """
-    share_cascade([ope.div for ope in opes], args, "div")
+    ope_div = [ope.div for ope in opes]
+    ope_mul = [ope.mul for ope in opes]
+    share_cascade(ope_div, args, "div")
+    for id, div in enumerate(ope_div):
+        opes[id].div = div
+    share_cascade(ope_mul, args, "mul")
+    for id, mul in enumerate(ope_mul):
+        opes[id].mul = mul
+    print("ope.div", [[(x.identifier) if type(x) is Unary else (
+        x.left, x.right) for x in y]for y in ope_div])
+    print("ope.mul", [[(x.identifier) if type(x) is Unary else (
+        x.left, x.right) for x in y]for y in ope_mul])
+    for ope in opes:
+        for add in ope.add:
+            if type(add.identifier) is Binary:
+                category = ope.mul if add.identifier.type == "mul" else ope.div
+                add.identifier = category[add.identifier.num].identifier
+        for minus in ope.minus:
+            if type(minus.identifier) is Binary:
+                category = ope.mul if minus.identifier.type == "mul" else ope.div
+                minus.identifier = category[minus.identifier.num].identifier
+
     # print(storage.blocks.blocks)
     # share_bin([ope.div for ope in opes], "DIV", args)
     # share_bin([ope.mul for ope in opes], "MUL", args)
-    # share_unary([ope.add for ope in opes], args)
-
-    assignments.clear()
-    with open(filename, 'r') as input:
-        with open(filename[:-2]+"_convert.v", 'w') as output:
-            lines = input.readlines()
-            for lineno, new_code in linenos:
-                space = len(lines[lineno - 1]) - \
-                    len(lines[lineno - 1].lstrip())
-                lines[lineno -
-                      1] = new_code.rjust(space + len(new_code)) + "\n"
-            output.writelines(lines)
-
-
-def get_max_sharing_part(opes):
-    max_ope = np.inf
-    for ope in opes:
-        if len(ope) < max_ope != 0:
-            max_ope = len(ope)
-    return max_ope
+    share_unary([ope.add for ope in opes], args, "add")
+    share_unary([ope.minus for ope in opes], args, "minus")
+    gen_verilog(ast, storage.blocks.blocks)
+    # assignments.clear()
+    # with open(filename, 'r') as input:
+    #     with open(filename[:-2]+"_convert.v", 'w') as output:
+    #         lines = input.readlines()
+    #         for lineno, new_code in linenos:
+    #             space = len(lines[lineno - 1]) - \
+    #                 len(lines[lineno - 1].lstrip())
+    #             lines[lineno -
+    #                   1] = new_code.rjust(space + len(new_code)) + "\n"
+    #         output.writelines(lines)
 
 
 def share_cascade(shares, args, _type):
@@ -170,100 +183,8 @@ def share_cascade(shares, args, _type):
         print("_divs", [[(x.identifier) if type(x) is Unary else (
             x.left, x.right) for x in y]for y in shares])
         share_div(shares, args)
-
-
-# def share_cascade(divs, muls, args):
-#     div_dict = {}
-#     mul_dict = {}
-#     branches = []
-#     new_mul = []
-#     new_div = []
-
-#     def add_cascade(ope, _type):
-#         branch_div = []
-#         branch_mul = []
-#         if type(ope.left) is Binary:
-#             if ope.left.type == "mul":
-#                 branch_mul.append(ope.left)
-#             elif ope.left.type == "div":
-#                 branch_div.append(ope.left)
-#         if _type == "MUL":
-#             if type(ope.right) is Binary:
-#                 if ope.right.type == "mul":
-#                     branch_mul.append(ope.right)
-#                 elif ope.right.type == "div":
-#                     branch_div.append(ope.right)
-#         return branch_div, branch_mul
-
-#     def get_new_mul_div():
-#         for mul in muls:
-#             for m in mul:
-#                 branch_div, branch_mul = add_cascade(
-#                     m, "MUL")
-#                 if m.branch in branches:
-#                     div_dict[branches.index(m.branch)].extend(branch_div)
-#                     mul_dict[branches.index(m.branch)].extend(branch_mul)
-#                 else:
-#                     branches.append(m.branch)
-#                     div_dict[len(branches) - 1] = branch_div
-#                     mul_dict[len(branches) - 1] = branch_mul
-#         for div in divs:
-#             for d in div:
-#                 branch_div, branch_mul = add_cascade(
-#                     d, "DIV")
-#                 if d.branch in branches:
-#                     div_dict[branches.index(d.branch)].extend(branch_div)
-#                     mul_dict[branches.index(d.branch)].extend(branch_mul)
-#                 else:
-#                     branches.append(d.branch)
-#                     div_dict[len(branches) - 1] = branch_div
-#                     mul_dict[len(branches) - 1] = branch_mul
-#         for _, v in mul_dict.items():
-#             if v:
-#                 new_mul.append(v)
-#         for _, v in div_dict.items():
-#             if v:
-#                 new_div.append(v)
-
-#     get_new_mul_div()
-#     div_dict = {}
-#     mul_dict = {}
-#     branches = []
-
-#     if len(new_div) >= 2 or len(new_mul) >= 2:
-#         share_cascade(new_div, new_mul, args)
-#     else:
-#         '''TODO'''
-#         print([[(x.left, x.right, x.branch) for x in y]for y in divs])
-#         print([[(x.left, x.right, x.branch) for x in y]for y in muls])
-#         if len(divs) == 1:
-#             storage.assign_extra(divs, "/")
-#         if len(muls) == 1:
-#             storage.assign_extra(muls, '*')
-#         print("No cascade. Directly assign")
-#         return
-
-#     share_mul(new_mul, args)
-
-#     for branch_divs in divs:
-#         for div in branch_divs:
-#             if type(div.left) is Binary:
-#                 for id, mul in enumerate(muls):
-#                     if div.left in mul:
-#                         # id = branches.index(div.branch)
-#                         div.left = new_mul[id][muls[id].index(
-#                             div.left)].identifier
-
-#     # print("after_new_mul", [[x.identifier if type(x) is Unary else (x.left)
-#     #                         for x in y]for y in new_mul])
-#     # print("after_mul", muls)
-
-#     # get_new_mul_div()
-
-#     print("after_div", [[(x.left, x.right) for x in y]for y in divs])
-#     print("new_div", new_div)
-#     share_div(new_div, args)
-#     return
+    print("after_shares", [[(x.left, x.right) if type(
+        x) is Binary else (x.identifier) for x in y] for y in shares])
 
 
 def share_mul(muls, args):
@@ -340,7 +261,7 @@ def share_mul(muls, args):
         # print(np_arr)
         min_cost, chosen_columns, rest_columns = gen_decision.gen_decision(
             np_arr, args)
-        storage.save_result(muls, chosen_columns,
+        storage.save_binary(muls, chosen_columns,
                             list(input_set), "mul", chain)
         # print(min_cost, chosen_columns, rest_columns)
 
@@ -359,12 +280,6 @@ def share_div(divs, args):
         share_edges = set()
         input_dict = {}
         for j in range(len(divs[i])):
-            # if divs[i][j].left in input_dict.keys():
-            #     input_dict[divs[i][j].left].append(
-            #         i * len(divs[i]) + j)
-            # else:
-            #     input_dict[divs[i][j].left] = [
-            #         i * len(divs[i]) + j]
             if divs[i][j].right in input_dict.keys():
                 input_dict[divs[i][j].right].append(
                     i * len(divs[i]) + j)
@@ -372,9 +287,6 @@ def share_div(divs, args):
                 input_dict[divs[i][j].right] = [
                     i * len(divs[i]) + j]
         for j in range(len(divs[i + 1])):
-            # if divs[i + 1][j].left in input_dict.keys():
-            #     for v in input_dict[divs[i + 1][j].left]:
-            #         share_edges.add((v, j))
             if divs[i + 1][j].right in input_dict.keys():
                 for v in input_dict[divs[i + 1][j].right]:
                     share_edges.add((v, j))
@@ -420,44 +332,38 @@ def share_div(divs, args):
         # print(np_arr)
         min_cost, chosen_columns, rest_columns = gen_decision.gen_decision(
             np_arr, args)
-        storage.save_result(divs, chosen_columns,
+        storage.save_binary(divs, chosen_columns,
                             list(input_set), "div", chain)
         # print(min_cost, chosen_columns, rest_columns)
 
 
-def share_unary(unarys, args):
+def share_unary(unarys, args, _type):
     unarys = list(filter(lambda x: len(x) > 0, unarys))
-
-    while len(unarys) > 1:
-        length = get_max_sharing_part(unarys)
-        share_unarys = []
-        for i in range(len(unarys)):
-            '''TODO: not randomly choose'''
-            share_unarys.append(unarys[i][:length])
-            unarys[i] = unarys[i][length:]
-        inputs = set()
-        for unary in share_unarys:
-            for item in unary:
-                inputs.add(item.identifier)
-        arr = []
-        for unary in share_unarys:
-            row = []
-            single_input = set()
-            '''TODO: duplicated inputs. eg.a + a'''
-            for item in unary:
-                single_input.add(item.identifier)
-            for input in inputs:
-                if input in single_input:
-                    row.append('1')
-                else:
-                    row.append('0')
-            arr.append(row)
-        np_arr = np.array(arr)
-        # print(np_arr)
-        min_cost, chosen_columns = gen_decision.gen_decision(np_arr, args)
-        # print(min_cost, chosen_columns)
-        '''TODO: save results'''
-        unarys = list(filter(lambda x: len(x) > 0, unarys))
+    inputs = set()
+    for unary in unarys:
+        for item in unary:
+            inputs.add(item.identifier)
+    arr = []
+    for unary in unarys:
+        row = []
+        single_input = set()
+        '''TODO: duplicated inputs. eg.a + a'''
+        for item in unary:
+            single_input.add(item.identifier)
+        for input in inputs:
+            if input in single_input:
+                row.append('1')
+            else:
+                row.append('0')
+        arr.append(row)
+    np_arr = np.array(arr)
+    print(np_arr)
+    min_cost, chosen_columns, rest_columns = gen_decision.gen_decision(
+        np_arr, args)
+    # print(min_cost, chosen_columns)
+    '''TODO: save results'''
+    storage.save_unary(unarys, chosen_columns,
+                       rest_columns, list(inputs), _type)
 
 
 def main(args):

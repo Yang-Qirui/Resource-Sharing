@@ -2,6 +2,7 @@ import re
 
 
 class Node:
+
     def __init__(self, branch, num=None, type=None):
         self.num = num
         self.type = type
@@ -73,23 +74,32 @@ def divide_ope(equation, branch):
         if top == "*" or top == "/":
             r = num_stack.pop()
             l = num_stack.pop()
-            type, category = (
+            _type, category = (
                 "mul", mul) if top == "*" else ("div", div)
-            if r in category:
-                category.pop(r.num)
-                r.num = None
-            if l in category:
-                category.pop(l.num)
-                l.num = None
-            new_binary = Binary(branch, len(category), type,  l, r)
+            if type(r) is Binary:
+                if r.type == "mul":
+                    mul.pop(r.num)
+                else:
+                    div.pop(r.num)
+            if type(l) is Binary:
+                if l.type == "mul":
+                    mul.pop(l.num)
+                else:
+                    div.pop(l.num)
+            # if r in category:
+            #     category.pop(r.num)
+            #     r.num = None
+            # if l in category:
+            #     category.pop(l.num)
+            #     l.num = None
+            new_binary = Binary(branch, len(category), _type,  l, r)
             category.append(new_binary)
             num_stack.append(new_binary)
         else:
             ident = num_stack.pop()
-            type, category = (
+            _type, category = (
                 "add", add) if top == "+" else ("minus", minus)
-            new_unary = Unary(branch, len(category), type, ident)
-            category = add if top == "+" else minus
+            new_unary = Unary(branch, len(category), _type, ident)
             category.append(new_unary)
 
     for i in split:
@@ -106,5 +116,5 @@ def divide_ope(equation, branch):
     while ope_stack[-1] != "#":
         calculate()
     while len(num_stack) != 0:
-        add.append(Unary(len(add), "add", num_stack.pop()))
+        add.append(Unary(branch, len(add), "add", num_stack.pop()))
     return DividedOpes(add, minus, mul, div)
